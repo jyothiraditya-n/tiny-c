@@ -1,5 +1,5 @@
 /* Tiny Seeds: A Single-File C-Language Implementation of the Seeds Cellular
- * Automaton for Linux TTYs Copyright (C) 2021 Jyothiraditya Nellakra
+ * Automaton for Linux TTYs Copyright (C) 2021-2022 Jyothiraditya Nellakra
  *
  * This program is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -52,7 +52,7 @@ void exitprg(int ret) { reset_terminal(); printf("\e[?25h"); exit(ret); }
 #define BANNER "Tiny Seeds - Use WASD to Move, Space to Pause, Return to Exit"
 #define DESC "RF to Alter Speed, IO for Cell State, X to Reset, C to Clear"
 #define NAME "Tiny Seeds"
-#define CREDITS "Copyright (C) 2021 Jyothiraditya Nellakra"
+#define CREDITS "Copyright (C) 2021-2022 Jyothiraditya Nellakra"
 
 char buf_get(int x, int y) {
 	if(x >= width) x -= width; else if(x < 0) x += width;
@@ -92,7 +92,7 @@ void game_main() {
 		case 'i': front_buf_put(x, y, '#'); break;
 		case 'o': front_buf_put(x, y, ' '); break;
 
-		case ' ': paused = paused ? false : true; break;
+		case ' ': paused = paused ? false : true; goto wait;
 		case 'r': delay -= delay / 10; break;
 		case 'f': delay += delay / 10; break;
 		case '\n': game_over(); break;
@@ -105,7 +105,9 @@ void game_main() {
 		for(int i = 0; i < width * height; i++)
 			front_buf[i] = rand() % 2 ? ' ' : '#';
 
-	redisp:	if(paused) refresh_screen();
+	redisp:	if(paused) refresh_screen(); break;
+	wait:	if(paused) fcntl(STDIN_FILENO, F_SETFL, ~O_NONBLOCK);
+		else fcntl(STDIN_FILENO, F_SETFL, O_NONBLOCK);
 	}
 
 	if(!paused) { next_generation(); refresh_screen(); }
@@ -163,6 +165,6 @@ int main() {
 	}
 
 	refresh_screen();
-	while(true) { game_main(); pauseprg(delay); }
+	while(true) { game_main(); if(!paused) pauseprg(delay); }
 	puts(NON_REACH_ERR); exitprg(6);
 }

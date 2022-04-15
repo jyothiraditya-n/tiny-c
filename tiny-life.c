@@ -1,5 +1,5 @@
 /* Tiny Life: A Single-File C-Language Implementation of Conway's Game of Life
- * for Linux TTYs Copyright (C) 2021 Jyothiraditya Nellakra
+ * for Linux TTYs Copyright (C) 2021-2022 Jyothiraditya Nellakra
  *
  * This program is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -33,10 +33,10 @@ bool paused = false;
 int x, y;
 
 void swap_bufs() { char *b = back_buf; back_buf = front_buf; front_buf = b; }
-void refresh_screen() { puts("\e[1;1H"); puts(front_buf); }
+void refresh_scr() { puts("\e[1;1H"); puts(front_buf); }
 
 void putch(char ch) { printf("\e[%d;%dH\e[7m%c\e[0m", y + 2, x + 1, ch); }
-void putspaces(int spaces) { for(int i = 0; i < spaces; i++) putchar(' '); }
+void put_spaces(int n) { for(int i = 0; i < n; i++) putchar(' '); }
 
 void reset_terminal() { tcsetattr(STDIN_FILENO, TCSANOW, &cooked); }
 void pauseprg(long ns) { nanosleep((const struct timespec[]){{0, ns}}, NULL); }
@@ -52,7 +52,7 @@ void exitprg(int ret) { reset_terminal(); printf("\e[?25h"); exit(ret); }
 #define BANNER "Tiny Life - Use WASD to Move, Space to Pause, Return to Exit"
 #define DESC "RF to Alter Speed, IO for Cell State, X to Reset, C to Clear"
 #define NAME "Tiny Life"
-#define CREDITS "Copyright (C) 2021 Jyothiraditya Nellakra"
+#define CREDITS "Copyright (C) 2021-2022 Jyothiraditya Nellakra"
 
 char buf_get(int x, int y) {
 	if(x >= width) x -= width; else if(x < 0) x += width;
@@ -97,7 +97,7 @@ void game_main() {
 		case 'i': front_buf_put(x, y, '#'); break;
 		case 'o': front_buf_put(x, y, ' '); break;
 
-		case ' ': paused = paused ? false : true; break;
+		case ' ': paused = paused ? false : true; goto wait;
 		case 'r': delay -= delay / 10; break;
 		case 'f': delay += delay / 10; break;
 		case '\n': game_over(); break;
@@ -110,10 +110,12 @@ void game_main() {
 		for(int i = 0; i < width * height; i++)
 			front_buf[i] = rand() % 2 ? ' ' : '#';
 
-	redisp:	if(paused) refresh_screen();
+	redisp:	if(paused) refresh_scr(); break;
+	wait:	if(paused) fcntl(STDIN_FILENO, F_SETFL, ~O_NONBLOCK);
+		else fcntl(STDIN_FILENO, F_SETFL, O_NONBLOCK);
 	}
 
-	if(!paused) { next_generation(); refresh_screen(); }
+	if(!paused) { next_generation(); refresh_scr(); }
 	putch(buf_get(x, y)); fflush(stdout);
 }
 
@@ -151,23 +153,23 @@ int main() {
 
 	if((unsigned) width < strlen(BANNER)) {
 		printf("\e[2J\e[H\e[7m%s", NAME);
-		putspaces(width - strlen(NAME));
+		put_spaces(width - strlen(NAME));
 		puts("\e[0m\e[?25l");
 	}
 	
 	else if((unsigned) width < strlen(BANNER) + strlen(DESC) + 3) {
 		printf("\e[2J\e[H\e[7m%s", BANNER);
-		putspaces(width - strlen(BANNER));
+		put_spaces(width - strlen(BANNER));
 		puts("\e[0m\e[?25l");
 	}
 
 	else {
 		printf("\e[2J\e[H\e[7m%s", BANNER);
-		putspaces(width - strlen(BANNER) - strlen(DESC));
+		put_spaces(width - strlen(BANNER) - strlen(DESC));
 		printf("%s\e[0m\e[?25l", DESC);
 	}
 
-	refresh_screen();
-	while(true) { game_main(); pauseprg(delay); }
+	refresh_scr();
+	while(true) { game_main(); if(!paused) pauseprg(delay); }
 	puts(NON_REACH_ERR); exitprg(6);
 }

@@ -1,5 +1,5 @@
 # Tiny C - Small Projects Implemented as Single-File C-Language Programs
-# Copyright (C) 2021 Jyothiraditya Nellakra
+# Copyright (C) 2021-2022 Jyothiraditya Nellakra
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU General Public License as published by the Free Software
@@ -18,7 +18,7 @@ progs = $(patsubst %.c,%,$(wildcard *.c))
 cur_progs = $(foreach prog,$(progs),$(wildcard $(prog)))
 
 CC ?= gcc
-CFLAGS ?= -std=gnu99 -Wall -Wextra -Werror -O3
+CFLAGS ?= -std=gnu99 -Wall -Wextra -Werror -Ofast
 DESTDIR ?= ~/.local/bin
 
 CLEAN = $(foreach prog,$(cur_progs),rm $(prog);)

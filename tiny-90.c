@@ -1,5 +1,5 @@
 /* Tiny 90: A Single-File C-Language Implementation of the Rule 90 Cellular
- * Automaton for Linux TTYs Copyright (C) 2021 Jyothiraditya Nellakra
+ * Automaton for Linux TTYs Copyright (C) 2021-2022 Jyothiraditya Nellakra
  *
  * This program is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -14,70 +14,67 @@
  * You should have received a copy of the GNU General Public License along with
  * this program. If not, see <https://www.gnu.org/licenses/>. */
 
-#include <stdbool.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
+#include <stdbool.h> //
+#include <stdio.h>   //       m      "                          mmmm   mmmm
+#include <stdlib.h>  //     mm#mm  mmm    m mm   m   m         #"  "# m"  "m
+#include <string.h>  //       #      #    #"  #  "m m"         #m  m# #  m #
+#include <time.h>    //       #      #    #   #   #m#           """ # #    #
+                     //       "mm  mm#mm  #   #   "#           "mmm"   #mm#
+#include <fcntl.h>   //                           m"  
+#include <termios.h> //                          ""
+#include <unistd.h>  //
 
-#include <fcntl.h>
-#include <termios.h>
-#include <unistd.h>
-
-struct termios cooked, raw;
-char *back_buf, *front_buf;
-int height, width;
-
-long delay = 125000000L;
-bool paused = false;
-int x, y;
-
-void swap_bufs() { char *b = back_buf; back_buf = front_buf; front_buf = b; }
-void putspaces(int spaces) { for(int i = 0; i < spaces; i++) putchar(' '); }
-void refresh_screen() { puts(front_buf); fflush(stdout); }
-
-void reset_terminal() { tcsetattr(STDIN_FILENO, TCSANOW, &cooked); }
-void pauseprg(long ns) { nanosleep((const struct timespec[]){{0, ns}}, NULL); }
-void exitprg(int ret) { reset_terminal(); printf("\e[?25h"); exit(ret); }
+#define TITLE_LEFT    "Tiny 90 - Press Return to Exit"
+#define TITLE_RIGHT   "Space to Pause, R to Speed Up, F to Slow Down"
+#define COPYRIGHT     "Tiny 90 Copyright (C) 2021-2022 Jyothiraditya Nellakra"
 
 #define FCNTL_SET_ERR "Error setting input to non-blocking with fcntl()."
 #define TCGETATTR_ERR "Error getting terminal properties with tcgetattr()."
 #define TCSETATTR_ERR "Error setting terminal properties with tcsetattr()."
 #define SCREEN_HW_ERR "Error getting screen size with ANSI escape codes."
 #define MEM_ALLOC_ERR "Error allocating memory with malloc()."
-#define NON_REACH_ERR "This error shouldn't trigger; main() shouldn't exit."
 
-#define BANNER "Tiny 90 - Press Return to Exit"
-#define DESC "Space to Pause, R to Speed Up, F to Slow Down"
-#define CREDITS "Tiny 90 Copyright (C) 2021 Jyothiraditya Nellakra"
+struct termios raw, cooked;
+char *front_buf, *back_buf;
+size_t height, width;
 
-char buf_get(int i) {
-	if(i >= width) i -= width;
-	else if(i < 0) i += width;
-	return front_buf[i];
-}
+long delay = 41666667L;
+bool paused = false;
 
-void buf_put(int i, char ch) { back_buf[i] = ch; }
-void game_over() { printf("\e[2J\e[H%s\n", CREDITS); exitprg(0); }
+void buf_put(size_t i, char ch) { back_buf[i] = ch; }
+char buf_get(size_t i) { return front_buf[i >= width ? i - width : i]; }
+void swap_bufs() { char *b = back_buf; back_buf = front_buf; front_buf = b; }
 
-void game_main() {
+void print_spaces(size_t n) { for(size_t i = 0; i < n; i++) putchar(' '); }
+void refresh_screen() { puts(front_buf); fflush(stdout); }
+
+void reset_terminal() { tcsetattr(STDIN_FILENO, TCSANOW, &cooked); }
+void pauseprg(long ns) { nanosleep((const struct timespec[]){{0, ns}}, NULL); }
+void exitprg(size_t ret) { reset_terminal(); printf("\e[?25h"); exit(ret); }
+
+int main_loop() {
 	switch(getchar()) {
 		case ' ': paused = paused ? false : true; break;
 		case 'r': delay -= delay / 10; break;
 		case 'f': delay += delay / 10; break;
-		case '\n': game_over(); break;
+
+		case '\n':
+			printf("\e[2J\e[H%s\n", COPYRIGHT);
+			return 0;
 	}
 
-	if(paused) return;
+	if(paused) return 1;
 
-	for(int i = 0; i < width; i++) {
+	for(size_t i = 0; i < width; i++) {
 		char a = buf_get(i - 1) == '#';
 		char b = buf_get(i + 1) == '#';
 
 		buf_put(i, a ^ b ? '#' : ' ');
 	}
 
-	swap_bufs(); refresh_screen();
+	swap_bufs();
+	refresh_screen();
+	return 2;
 }
 
 int main() {
@@ -96,7 +93,7 @@ int main() {
 	printf("\e[999;999H\e[6n");
 	while(getchar() != '\e');
 
-	ret = scanf("[%d;%dR", &height, &width);
+	ret = scanf("[%zu;%zuR", &height, &width);
 	if(ret != 2) { puts(SCREEN_HW_ERR); exitprg(4); }
 
 	front_buf = malloc(sizeof(char) * width + 1);
@@ -107,22 +104,22 @@ int main() {
 
 	srand((unsigned) time(NULL));
 
-	for(int i = 0; i <width; i++)
+	for(size_t i = 0; i <width; i++)
 		front_buf[i] = rand() % 2 ? ' ' : '#';
 
 	front_buf[width] = 0;
-	printf("\r\e[7m%s", BANNER);
+	printf("\r\e[7m%s", TITLE_LEFT);
 
-	if((unsigned) width < strlen(BANNER) + strlen(DESC) + 3) {
-		putspaces(width - strlen(BANNER));
+	if(width < strlen(TITLE_LEFT) + strlen(TITLE_RIGHT) + 3) {
+		print_spaces(width - strlen(TITLE_LEFT));
 		printf("\e[0m\n%s\e[?25l\n", front_buf);
 	}
 
 	else {
-		putspaces(width - strlen(BANNER) - strlen(DESC));
-		printf("%s\e[0m\n%s\e[?25l\n", DESC, front_buf);
+		print_spaces(width - strlen(TITLE_LEFT) - strlen(TITLE_RIGHT));
+		printf("%s\e[0m\n%s\e[?25l\n", TITLE_RIGHT, front_buf);
 	}
 
-	while(true) { game_main(); pauseprg(delay); }
-	puts(NON_REACH_ERR); exitprg(6);
+	while(main_loop()) pauseprg(delay);
+	exitprg(0);
 }
