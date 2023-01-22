@@ -1,5 +1,5 @@
 # Tiny C - Small Projects Implemented as Single-File C-Language Programs
-# Copyright (C) 2021-2022 Jyothiraditya Nellakra
+# Copyright (C) 2021-2023 Jyothiraditya Nellakra
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU General Public License as published by the Free Software
@@ -19,13 +19,14 @@ cur_progs = $(foreach prog,$(progs),$(wildcard $(prog)))
 
 CC ?= gcc
 CFLAGS ?= -std=gnu99 -Wall -Wextra -Werror -Ofast
+LD_LIBS += -lm
 DESTDIR ?= ~/.local/bin
 
 CLEAN = $(foreach prog,$(cur_progs),rm $(prog);)
-INSTALL = $(foreach prog,$(progs),cp $(prog) $(DESTDIR)/$(prog);)
+INSTALL = $(foreach prog,$(progs),cp $(prog) $(DESTDIR)/tc.$(prog);)
 
 $(progs) : % : %.c
-	$(CC) $(CFLAGS) $< -o $@
+	$(CC) $(CFLAGS) $< -o $@ $(LD_LIBS)
 
 .DEFAULT_GOAL = all
 .PHONY : all clean install

@@ -1,5 +1,5 @@
 /* Tiny Snake: A Single-File C-Language Implementation of Snake for Linux TTYs
- * Copyright (C) 2021-2022 Jyothiraditya Nellakra
+ * Copyright (C) 2021-2023 Jyothiraditya Nellakra
  *
  * This program is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -14,13 +14,11 @@
  * You should have received a copy of the GNU General Public License along with
  * this program. If not, see <https://www.gnu.org/licenses/>. */
 
-#include <stdbool.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-
-#include <fcntl.h>
 #include <termios.h>
 #include <unistd.h>
 
@@ -53,7 +51,7 @@ char *map_memory;
 
 long delay = 125000000L;
 int grace_moves = 3;
-bool paused;
+int paused;
 
 char map_get(int x, int y) { return map_memory[y * width + x]; }
 void map_put(int x, int y, char ch) { map_memory[y * width + x] = ch; }
@@ -71,7 +69,7 @@ void game_main() {
         switch(getchar()) {
                 case 'r': delay -= delay / 10; bonus++;  break;
                 case 'f': delay += delay / 10; bonus--; break;
-                case ' ': paused = paused ? false : true; break;
+                case ' ': paused = paused ? 0 : 1; break;
                 case '\n': game_over(); break;
 
         case 'w':
@@ -193,6 +191,6 @@ int main() {
         map_put(x, y, '@'); putch(x, y, '@');
 
         fflush(stdout);
-        while(true) { game_main(); if(!paused) pauseprg(delay); }
+        while(1) { game_main(); if(!paused) pauseprg(delay); }
         puts(NON_REACH_ERR); exitprg(6);
 }
